@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .maze {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            grid-template-rows: repeat(10, 40px);
+            grid-gap: 2px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #eee;
+            border: 1px solid #aaa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .cell.wall {
+            background-color: #333;
+        }
+        .cell.start {
+            background-color: #0f0;
+        }
+        .cell.end {
+            background-color: #f00;
+        }
+       
+       
+        .cell.car {
+            background-color: #ff0;
+        }
+        .cell.bomb {
+            background-color: #f90;
+        }
+        .reset-button {
+            margin-top: 10px;
+        }
+        #timer {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="maze" id="maze"></div>
+    <button class="reset-button" id="resetButton" style="display: none;">Reiniciar</button>
+    <div id="timer">Tempo: 0 segundos</div>
+    <script>
+        const labirintoMap = [
+            ['S', 0, 0, 0, 0, 0, 0, 0, 0, 'E'],
+            [0, 1, 1, 1, 0, 1, 1, 1, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 0, 1, 0, 1, 1, 0],
+            [0, 1, 0, 1, 0, 1, 0, 0, 1, 0],
+            [0, 1, 0, 1, 0, 1, 1, 1, 1, 0],
+            [0, 1, 0, 1, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 0, 1]
+        ];
+
+        const mazeContainer = document.getElementById('maze');
+        let carPosition = { x: 0, y: 0 };
+        let gameEnded = false;
+        let startTime = null;
+        let timerInterval = null;
+
+        const resetButton = document.getElementById('resetButton');
+        resetButton.addEventListener('click', resetGame);
+
+        function createMaze() {
+            labirintoMap.forEach((row, rowIndex) => {
+                row.forEach((cell, colIndex) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.classList.add('cell');
+                    if (cell === 1) {
+                        cellElement.classList.add('wall');
+                    } else if (cell === 'S') {
+                        cellElement.classList.add('start');
+                        carPosition = { x: colIndex, y: rowIndex };
+                    } else if (cell === 'E') {
+                        cellElement.classList.add('end');
+                    }
+                    mazeContainer.appendChild(cellElement);
+                });
+            });
+        }
+
+        function placeBombs() {
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 10; x++) {
+                    if (labirintoMap[y][x] === 0 && labirintoMap[y][x] !== 'S' && labirintoMap[y][x] !== 'E' && Math.random() < 0.1) {
+                        labirintoMap[y][x] = 'B';
+                        mazeContainer.children[y * 10 + x].classList.add('bomb');
+                    }
+                }
+            }
+        }
+
+        function moveCar(dx, dy) {
+            if (gameEnded) {
+                return;
+            }
+
+            const newX = carPosition.x + dx;
+            const newY = carPosition.y + dy;
+
+            if (isValidMove(newX, newY)) {
+                if (labirintoMap[newY][newX] === 'B') {
+                    // Explodir a bomba
+                    gameEnded = true;
+                    clearInterval(timerInterval);
+                    resetButton.style.display = 'block';
+                    alert('Você explodiu em ' + formatTime());
+                } else {
+                    mazeContainer.children[carPosition.y * 10 + carPosition.x].classList.remove('car');
+                    carPosition.x = newX;
+                    carPosition.y = newY;
+                    mazeContainer.children[carPosition.y * 10 + carPosition.x].classList.add('car');
+                    checkWin();
+                }
+            }
+        }
+
+        function isValidMove(x, y) {
+            return x >= 0 && x < 10 && y >= 0 && y < 10 && labirintoMap[y][x] !== 1;
+        }
+
+        function checkWin() {
+            if (labirintoMap[carPosition.y][carPosition.x] === 'E') {
+                gameEnded = true;
+                clearInterval(timerInterval);
+                resetButton.style.display = 'block';
+                alert('Você chegou ao ponto de chegada em ' + formatTime());
+            }
+        }
+
+        function resetGame() {
+            gameEnded = false;
+            resetButton.style.display = 'none';
+            carPosition = { x: 0, y: 0 };
+            startTime = null;
+            updateTimerDisplay(0);
+
+            mazeContainer.innerHTML = '';
+            createMaze();
+            placeBombs();
+            console.log(labirintoMap)
+        }
+
+        function formatTime() {
+            if (!startTime) {
+                return '0 segundos';
+            }
+            const currentTime = new Date().getTime();
+            const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+            return `${elapsedTime} segundo${elapsedTime !== 1 ? 's' : ''}`;
+        }
+
+        function updateTimerDisplay(elapsedTime) {
+            document.getElementById('timer').textContent = `Tempo: ${elapsedTime} segundo${elapsedTime !== 1 ? 's' : ''}`;
+        }
+
+        createMaze();
+        placeBombs();
+        resetGame(); // Inicializa o jogo
+
+        document.addEventListener('keydown', (event) => {
+            if (gameEnded) {
+                return;
+            }
+
+            if (!startTime) {
+                startTime = new Date().getTime();
+                timerInterval = setInterval(() => {
+                    const currentTime = new Date().getTime();
+                    const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+                    updateTimerDisplay(elapsedTime);
+                }, 1000);
+            }
+
+            if (event.key === 'ArrowUp') {
+                moveCar(0, -1);
+            } else if (event.key === 'ArrowDown') {
+                moveCar(0, 1);
+            } else if (event.key === 'ArrowLeft') {
+                moveCar(-1, 0);
+            } else if (event.key === 'ArrowRight') {
+                moveCar(1, 0);
+            } else if (event.key === 'Shift') {
+                moveCar(2, 0);
+            }
+        });
+    </script>
+</body>
+</html>
